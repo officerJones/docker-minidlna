@@ -1,0 +1,16 @@
+version: '3.7'
+
+services:
+  minidlna:
+    image: officerjones/minidlna
+    container_name: minidlna
+    restart: unless-stopped
+    volumes:
+      - /mnt/media/movies:/mnt/media/movies
+    network_mode: "host"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "192.168.0.14:8200"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 0s
