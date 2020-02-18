@@ -41,6 +41,19 @@ pipeline {
                 sh 'docker build --tag ${TEST_TAG} .'
             }
         }
+        stage('Tests') {
+            environment {
+                GOSS_FILES_STRATEGY="cp"
+                GOSS_OPTS="--format junit"
+            }
+            steps {
+                sh """
+                    mkdir -p testresults
+                    dcgoss run minidlna > testresults/dcgoss_testresults.xml
+                    sed -i -n '/<?xml/,/<\\/testsuite/p' testresults/dcgoss_testresults.xml
+                """
+            }
+        }
         stage('Push to Docker Hub') {
             when{
                 branch 'master'
@@ -75,6 +88,10 @@ pipeline {
 */
     }
     post {
+        always {
+            archiveArtifacts artifacts: 'testresults/*.xml'
+            junit 'testresults/*.xml'
+        }
         success {
             sh "docker image rm ${TEST_TAG}"
             setBuildStatus("Build succeeded", "SUCCESS");

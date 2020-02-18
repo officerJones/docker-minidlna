@@ -1,0 +1,20 @@
+file:
+  /etc/minidlna.conf:
+    exists: true
+    contains:
+      - port
+      - media_dir
+port:
+  tcp:8200:
+    listening: true
+    ip:
+    - 0.0.0.0
+process:
+  minidlnad:
+    running: true
+http:
+  http://localhost:8200:
+    status: 200
+    timeout: 5000
+    body:
+    - MiniDLNA status

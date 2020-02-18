@@ -10,7 +10,7 @@ services:
     network_mode: "host"
     healthcheck:
       test: ["CMD", "curl", "-f", "192.168.0.14:8200"]
-      interval: 1m30s
+      interval: 3m00s
       timeout: 10s
       retries: 3
       start_period: 0s
