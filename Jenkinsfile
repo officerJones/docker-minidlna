@@ -17,10 +17,11 @@ pipeline {
         PATH="$PATH:${HOME}/.local/bin"
         // DOCKER_HUB_USER is configured as global variable in Jenkins
         DOCKER_HUB_PASS=credentials('docker_hub_password')
-        NAME_TAG="minidlna"
-        TEST_TAG="${NAME_TAG}:test"
-        BUILD_TAG="${DOCKER_HUB_USER}/${NAME_TAG}"
+        PROJECT_NAME="minidlna"
+        TEST_TAG="${DOCKER_HUB_USER}/${PROJECT_NAME}:test"
         def IMAGE_VERSION=readFile "version"
+        RELEASE_TAG="${DOCKER_HUB_USER}/${PROJECT_NAME}:${IMAGE_VERSION}"
+        LATEST_TAG="${DOCKER_HUB_USER}/${PROJECT_NAME}:latest"
     }
     stages {
         stage('Dockerfile syntax check') {
@@ -43,29 +44,36 @@ pipeline {
         }
         stage('Tests') {
             environment {
+                // Variables used by GOSS framework
                 GOSS_FILES_STRATEGY="cp"
                 GOSS_OPTS="--format junit"
+                // Overwrite environment variables in docker-compose.yml
+                VERSION_TAG="test"
             }
             steps {
+                // Run dcgoss with junit output
                 sh """
                     mkdir -p testresults
                     dcgoss run minidlna > testresults/dcgoss_testresults.xml
-                    sed -i -n '/<?xml/,/<\\/testsuite/p' testresults/dcgoss_testresults.xml
                 """
+                // sed -n '/<?xml/,/<\\/testsuite/p' testresults/dcgoss_testresults.txt > testresults/dcgoss_testresults.xml
             }
         }
         stage('Push to Docker Hub') {
-            when{
+            /*when{
                 branch 'master'
-            }
+            }*/
+            when {tag "release-*"}
                 steps {
                     script {
                         // Tag test image with production tag & push
                         sh """
-                            echo 'Tagging with version ${IMAGE_VERSION}'
-                            docker tag ${TEST_TAG} ${BUILD_TAG}:${IMAGE_VERSION}
+                            echo 'Tagging ${TEST_TAG} with ${RELEASE_TAG}'
+                            docker tag ${TEST_TAG} ${RELEASE_TAG}
+                            docker tag ${TEST_TAG} ${LATEST_TAG}
                             echo '${DOCKER_HUB_PASS}' | docker login --username ${DOCKER_HUB_USER} --password-stdin
-                            docker push ${BUILD_TAG}:${IMAGE_VERSION}
+                            docker push ${RELEASE_TAG}
+                            docker push ${LATEST_TAG}
                             docker logout
                         """
                     }
@@ -89,11 +97,13 @@ pipeline {
     }
     post {
         always {
-            archiveArtifacts artifacts: 'testresults/*.xml'
+            archiveArtifacts artifacts: 'testresults/*'
             junit 'testresults/*.xml'
+            // Try to delete container & image and make sure it exits fine
+            sh "docker rm -f ${PROJECT_NAME} || true"
+            sh "docker image rm -f ${TEST_TAG} || true"
         }
         success {
-            sh "docker image rm ${TEST_TAG}"
             setBuildStatus("Build succeeded", "SUCCESS");
         }
         failure {

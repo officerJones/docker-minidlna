@@ -1,0 +1,47 @@
+language: node_js
+dist: trusty
+os: linux
+
+env:
+  global:
+    - PROJECT_NAME="minidlna" DOCKER_HUB_USER="officerjones" TEST_TAG="$DOCKER_HUB_USER/$PROJECT_NAME:test" DOCKER_COMPOSE_VERSION="1.25.4"
+
+# Install newer version of compose since the Travis version is old
+before_install:
+  - sudo rm /usr/local/bin/docker-compose
+  - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
+  - chmod +x docker-compose
+  - sudo mv docker-compose /usr/local/bin
+
+services:
+  - docker
+
+stages:
+  - syntax
+  - build
+  - test
+
+jobs:
+  include:
+  - stage: syntax
+    name: Dockerfile syntax
+    install:
+      - npm install -g dockerlint
+    script: dockerlint -f Dockerfile
+  - stage: syntax
+    name: Docker compose syntax
+    script: docker-compose config
+  - stage: build
+    name: Build docker image
+    script:
+      - docker build --tag "${TEST_TAG}" .
+  - stage: test
+    name: Test docker image
+    env: GOSS_FILES_STRATEGY="cp" VERSION_TAG="test"
+    install:
+      - docker build --tag "${TEST_TAG}" .
+      - curl -L https://goss.rocks/install | sudo sh
+      - curl -L https://raw.githubusercontent.com/officerJones/goss/master/extras/dcgoss/dcgoss > dcgoss
+      - chmod +rx dcgoss
+      - sudo mv dcgoss /usr/local/bin
+    script: dcgoss run minidlna
