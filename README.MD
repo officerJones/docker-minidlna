@@ -1,5 +1,6 @@
 Docker minidlna image
 ===
+[![Build Status](https://travis-ci.org/officerJones/docker-minidlna.svg?branch=master)](https://travis-ci.org/officerJones/docker-minidlna)  
 An image to run a minidlna server from within docker.
 ## Usage
 ### Docker-compose
