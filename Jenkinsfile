@@ -22,6 +22,7 @@ pipeline {
         def IMAGE_VERSION=readFile "version"
         RELEASE_TAG="${DOCKER_HUB_USER}/${PROJECT_NAME}:${IMAGE_VERSION}"
         LATEST_TAG="${DOCKER_HUB_USER}/${PROJECT_NAME}:latest"
+        TAG_NAME = sh(returnStdout: true, script: 'git tag -l --points-at HEAD').trim()
     }
     stages {
         stage('Dockerfile syntax check') {
@@ -60,40 +61,24 @@ pipeline {
             }
         }
         stage('Push to Docker Hub') {
-            /*when{
-                branch 'master'
-            }*/
-            when {tag "release-*"}
+            // Only push on master branch when release tag is present
+            when {
+                    branch 'master'
+                    tag 'release-*'
+            }
                 steps {
-                    script {
-                        // Tag test image with production tag & push
+                    withDockerRegistry([ credentialsId: "docker_hub_credentials", url: ""]) {
                         sh """
                             echo 'Tagging ${TEST_TAG} with ${RELEASE_TAG}'
                             docker tag ${TEST_TAG} ${RELEASE_TAG}
                             docker tag ${TEST_TAG} ${LATEST_TAG}
-                            echo '${DOCKER_HUB_PASS}' | docker login --username ${DOCKER_HUB_USER} --password-stdin
+                            echo 'Pushing images'
                             docker push ${RELEASE_TAG}
                             docker push ${LATEST_TAG}
-                            docker logout
                         """
                     }
                 }
         }
-/*
-         stage('Push to Github Packages') {
-            when{
-                branch 'master'
-            }
-                steps {
-                    script {
-                        // Tag test image with production tag & push
-                        sh """
-
-                        """
-                    }
-                }
-        }
-*/
     }
     post {
         always {
